@@ -3,12 +3,21 @@ require('dotenv').config();
 const fs = require('fs').promises; // Use fs.promises for async/await
 const { Alchemy, Network } = require("alchemy-sdk");
 
-const filePath = process.env.ACCOUNTS_FILE;
-
-if (!filePath) {
+let missing_env = false;
+if (!process.env.ACCOUNTS_FILE) {
     console.error('Please set the ACCOUNTS_FILE environment variable.');
+    missing_env = true;
+}
+if (!process.env.ALCHEMY_API_KEY) {
+    console.error('Please set the ALCHEMY_API_KEY environment variable.')
+    missing_env = true;
+}
+if (missing_env) {
+    console.error('You can add them by editing .env in the current folder.')
     process.exit(1);
 }
+
+const filePath = process.env.ACCOUNTS_FILE;
 
 // Configures the Alchemy SDK
 const config = {
