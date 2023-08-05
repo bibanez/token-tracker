@@ -4,13 +4,15 @@
   "description": "",
   "main": "src/main.js",
   "scripts": {
-    "start": "node src/main.js"
+    "console": "node src/main.js",
+    "telegram": "node src/telegram.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "alchemy-sdk": "^2.9.2",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "node-telegram-bot-api": "^0.61.0"
   }
 }
