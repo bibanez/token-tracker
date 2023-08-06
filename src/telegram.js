@@ -1,6 +1,8 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 
+const { createClient } = require('@supabase/supabase-js');
+
 const fs = require('fs').promises; // Use fs.promises for async/await
 const { Alchemy, Network } = require("alchemy-sdk");
 
@@ -17,6 +19,14 @@ if (!process.env.TELEGRAM_TOKEN) {
     console.error('Please set the TELEGRAM_TOKEN environment variable.')
     missing_env = true;
 }
+if (!process.env.SUPABASE_PROJECT_URL) {
+    console.error('Please set the SUPABASE_API_KEY environment variable.')
+    missing_env = true;
+}
+if (!process.env.SUPABASE_API_KEY) {
+    console.error('Please set the SUPABASE_API_KEY environment variable.')
+    missing_env = true;
+}
 if (missing_env) {
     console.error('You can add them by editing .env in the current folder.')
     process.exit(1);
@@ -31,20 +41,57 @@ const config = {
     network: Network.ETH_MAINNET, // Replace with your network
 };
 
-const bot = new TelegramBot(token, {polling: true});
+const supabase = createClient(process.env.SUPABASE_PROJECT_URL, process.env.SUPABASE_API_KEY)
+
+const bot = new TelegramBot(token, { polling: true });
 
 let chatIds = new Set();
 
-bot.on('message', (msg) => {
-  if (msg.text == '/start') {
-    const chatId = msg.chat.id;
-    const resp = "You have registered correctly for Token Tracker";
+const getChatIds = async () => {
+    let { data: chats, error } = await supabase
+        .from('chats')
+        .select('*');
 
-    chatIds.add(chatId);
-    console.log("New chat registered:", chatId);
+    console.log(chats);
 
-    bot.sendMessage(chatId, resp);
-  }
+    if (error) {
+        console.error('Error fetching chat IDs:', error);
+        return;
+    }
+
+    // Store the chat IDs in the chatIds set
+    if (chats && Array.isArray(chats)) {
+        for (const chat of chats) {
+            chatIds.add(chat.id);
+        }
+    }
+}
+
+// Call getChatIds() at the start
+getChatIds().then(() => {
+}).catch((error) => {
+    console.error('Error initializing the bot:', error);
+    process.exit(1);
+});
+
+
+bot.on('message', async (msg) => {
+    if (msg.text == '/start') {
+        const chatId = msg.chat.id;
+        const resp = "You have registered correctly for Token Tracker";
+
+        if (!chatIds.has(chatId)) {
+            const { error } = await supabase
+                .from('chats')
+                .insert({ id: chatId });
+            console.log(error);
+        }
+
+        chatIds.add(chatId);
+        console.log("New chat registered:", chatId);
+
+        bot.sendMessage(chatId, resp);
+    }
 });
 
 
@@ -90,7 +137,7 @@ const main = async () => {
             if (!tokens.has(token)) {
                 try {
                     const metadata = await alchemy.core.getTokenMetadata(token);
-                    reply += `+ ${metadata.name} (${metadata.symbol})\n`; 
+                    reply += `+ ${metadata.name} (${metadata.symbol})\n`;
                 } catch (error) {
                     console.log(error);
                     process.exit(1);
@@ -101,7 +148,7 @@ const main = async () => {
             if (!newTokens.has(token)) {
                 try {
                     const metadata = await alchemy.core.getTokenMetadata(token);
-                    reply += `- ${metadata.name} (${metadata.symbol})\n`; 
+                    reply += `- ${metadata.name} (${metadata.symbol})\n`;
                 } catch (error) {
                     console.log(error);
                     process.exit(1);
